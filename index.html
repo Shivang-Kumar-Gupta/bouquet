@@ -47,7 +47,7 @@
   <body>
     <div id="message">
       <h1>A Bouquet for You 💐</h1>
-      <p>Click or press any key to plant more flowers</p>
+      <p>Click anywhere to plant a flower exactly there</p>
     </div>
 
     <canvas id="canvas"></canvas>
@@ -78,7 +78,7 @@
         });
       }
 
-      // Find a spot without overlapping existing flowers
+      // Find a spot without overlapping existing flowers (used for auto-spawning)
       function getValidTarget(baseX, baseY, spreadX, spreadY, requiredRadius) {
         let attempts = 0;
         const maxAttempts = 150;
@@ -87,7 +87,6 @@
           let testX = baseX + (Math.random() - 0.5) * spreadX;
           let testY = baseY + (Math.random() - 0.5) * spreadY;
 
-          // Keep inside screen bounds
           if (
             testX < 50 ||
             testX > width - 50 ||
@@ -103,7 +102,6 @@
             let dx = testX - flowers[i].targetX;
             let dy = testY - flowers[i].targetY;
             let distance = Math.sqrt(dx * dx + dy * dy);
-
             let minAllowedDistance = requiredRadius + 70 * flowers[i].scale;
 
             if (distance < minAllowedDistance) {
@@ -138,48 +136,31 @@
           this.cpY = this.startY - (this.startY - this.targetY) / 2;
 
           this.progress = 0;
-          this.growthRate = 0.006 + Math.random() * 0.004; // Controls stem speed
+          this.growthRate = 0.006 + Math.random() * 0.004;
           this.bloomProgress = 0;
 
-          this.type =
-            specificType !== null
-              ? specificType
-              : Math.floor(Math.random() * 3);
-          this.scale =
-            specificScale !== null ? specificScale : 0.6 + Math.random() * 0.4;
+          this.type = specificType !== null ? specificType : Math.floor(Math.random() * 3);
+          this.scale = specificScale !== null ? specificScale : 0.6 + Math.random() * 0.4;
 
           const colors = [
-            ["#ff4d4d", "#cc0000"], // Tulips
-            ["#ffcc00", "#ff9900"], // Sunflowers
-            ["#ffffff", "#ffd1dc"], // Lilies
+            ["#ff4d4d", "#cc0000"], // Tulips (Red front, Dark red shade)
+            ["#ffcc00", "#ff9900"], // Sunflowers (Yellow front, Orange back)
+            ["#ffffff", "#ffd1dc"], // Lilies (White base, Pink shade)
           ];
           this.color = colors[this.type];
           this.stemColor = `rgb(46, ${100 + Math.random() * 50}, 46)`;
         }
 
         update() {
-          // Phase 1: Grow the stem
           if (this.progress < 1) {
             this.progress += this.growthRate;
-            if (this.progress >= 1) {
-              this.progress = 1; // Clamp to exactly 1
-            }
+            if (this.progress >= 1) this.progress = 1;
             const t = this.progress;
-            this.x =
-              (1 - t) * (1 - t) * this.startX +
-              2 * (1 - t) * t * this.cpX +
-              t * t * this.targetX;
-            this.y =
-              (1 - t) * (1 - t) * this.startY +
-              2 * (1 - t) * t * this.cpY +
-              t * t * this.targetY;
-          }
-          // Phase 2: Bloom the flower head (only starts after stem is done)
-          else if (this.bloomProgress < 1) {
-            this.bloomProgress += 0.015; // Controls bloom speed
-            if (this.bloomProgress >= 1) {
-              this.bloomProgress = 1; // Clamp
-            }
+            this.x = (1 - t) * (1 - t) * this.startX + 2 * (1 - t) * t * this.cpX + t * t * this.targetX;
+            this.y = (1 - t) * (1 - t) * this.startY + 2 * (1 - t) * t * this.cpY + t * t * this.targetY;
+          } else if (this.bloomProgress < 1) {
+            this.bloomProgress += 0.015;
+            if (this.bloomProgress >= 1) this.bloomProgress = 1;
           }
         }
 
@@ -196,25 +177,11 @@
           // Leaves
           if (this.progress > 0.5) {
             ctx.fillStyle = this.stemColor;
-            const leafX =
-              (1 - 0.5) * (1 - 0.5) * this.startX +
-              2 * (1 - 0.5) * 0.5 * this.cpX +
-              0.5 * 0.5 * this.targetX;
-            const leafY =
-              (1 - 0.5) * (1 - 0.5) * this.startY +
-              2 * (1 - 0.5) * 0.5 * this.cpY +
-              0.5 * 0.5 * this.targetY;
+            const leafX = (1 - 0.5) * (1 - 0.5) * this.startX + 2 * (1 - 0.5) * 0.5 * this.cpX + 0.5 * 0.5 * this.targetX;
+            const leafY = (1 - 0.5) * (1 - 0.5) * this.startY + 2 * (1 - 0.5) * 0.5 * this.cpY + 0.5 * 0.5 * this.targetY;
 
             ctx.beginPath();
-            ctx.ellipse(
-              leafX + 10,
-              leafY,
-              15 * this.scale * this.progress,
-              5 * this.scale * this.progress,
-              Math.PI / 4,
-              0,
-              Math.PI * 2,
-            );
+            ctx.ellipse(leafX + 10, leafY, 15 * this.scale * this.progress, 5 * this.scale * this.progress, Math.PI / 4, 0, Math.PI * 2);
             ctx.fill();
           }
 
@@ -222,57 +189,141 @@
           if (this.progress === 1 && this.bloomProgress > 0) {
             ctx.save();
             ctx.translate(this.x, this.y);
-            ctx.scale(
-              this.bloomProgress * this.scale,
-              this.bloomProgress * this.scale,
-            );
+            ctx.scale(this.bloomProgress * this.scale, this.bloomProgress * this.scale);
 
             if (this.type === 0) {
-              // Tulip
-              ctx.fillStyle = this.color[0];
+              // Tulip (Upgraded for realism)
+              const mainColor = this.color[0];
+              const shadeColor = this.color[1];
+
+              // Back/inner petal
+              ctx.fillStyle = shadeColor;
               ctx.beginPath();
-              ctx.moveTo(0, 10);
-              ctx.quadraticCurveTo(-20, -10, -15, -30);
-              ctx.quadraticCurveTo(0, -20, 0, -10);
-              ctx.quadraticCurveTo(0, -20, 15, -30);
-              ctx.quadraticCurveTo(20, -10, 0, 10);
+              ctx.moveTo(0, 5);
+              ctx.bezierCurveTo(-10, -15, -8, -35, 0, -40);
+              ctx.bezierCurveTo(8, -35, 10, -15, 0, 5);
               ctx.fill();
-            } else if (this.type === 1) {
+
+              // Left outer petal
+              ctx.fillStyle = mainColor;
+              ctx.beginPath();
+              ctx.moveTo(0, 12);
+              ctx.bezierCurveTo(-25, 5, -25, -25, -12, -38);
+              ctx.bezierCurveTo(-5, -20, -2, -5, 0, 12);
+              ctx.fill();
+              ctx.strokeStyle = shadeColor;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+
+              // Right outer petal
+              ctx.fillStyle = mainColor;
+              ctx.beginPath();
+              ctx.moveTo(0, 12);
+              ctx.bezierCurveTo(25, 5, 25, -25, 12, -38);
+              ctx.bezierCurveTo(5, -20, 2, -5, 0, 12);
+              ctx.fill();
+              ctx.stroke();
+
+              // Front center petal
+              ctx.fillStyle = mainColor;
+              ctx.beginPath();
+              ctx.moveTo(-7, 10);
+              ctx.bezierCurveTo(-15, -10, -8, -32, 0, -35);
+              ctx.bezierCurveTo(8, -32, 15, -10, 7, 10);
+              ctx.quadraticCurveTo(0, 15, -7, 10);
+              ctx.fill();
+              ctx.stroke();
+            } 
+            
+            else if (this.type === 1) {
               // Sunflower
-              ctx.fillStyle = this.color[0];
-              for (let i = 0; i < 12; i++) {
-                ctx.rotate((Math.PI * 2) / 12);
+              ctx.fillStyle = this.color[1];
+              for (let i = 0; i < 16; i++) {
+                ctx.rotate((Math.PI * 2) / 16);
                 ctx.beginPath();
-                ctx.ellipse(0, -15, 6, 15, 0, 0, Math.PI * 2);
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(8, -15, 0, -28);
+                ctx.quadraticCurveTo(-8, -15, 0, 0);
                 ctx.fill();
               }
-              ctx.fillStyle = "#4a3311";
-              ctx.beginPath();
-              ctx.arc(0, 0, 12, 0, Math.PI * 2);
-              ctx.fill();
-            } else if (this.type === 2) {
-              // Lily
               ctx.fillStyle = this.color[0];
+              for (let i = 0; i < 16; i++) {
+                ctx.rotate((Math.PI * 2) / 16 + 0.2);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(6, -12, 0, -24);
+                ctx.quadraticCurveTo(-6, -12, 0, 0);
+                ctx.fill();
+              }
+              ctx.fillStyle = "#3d2314";
+              ctx.beginPath();
+              ctx.arc(0, 0, 11, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.fillStyle = "#5c3a21";
+              for(let i=0; i<35; i++) {
+                 let r = 7 + Math.random()*3;
+                 let angle = Math.random() * Math.PI * 2;
+                 ctx.beginPath();
+                 ctx.arc(Math.cos(angle)*r, Math.sin(angle)*r, 0.8, 0, Math.PI*2);
+                 ctx.fill();
+              }
+            } 
+            
+            else if (this.type === 2) {
+              // Lily 
+              const petalColor = this.color[0];
+              const innerShade = this.color[1];
+
               for (let i = 0; i < 6; i++) {
                 ctx.rotate((Math.PI * 2) / 6);
+                ctx.fillStyle = petalColor;
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
-                ctx.quadraticCurveTo(15, -15, 0, -35);
-                ctx.quadraticCurveTo(-15, -15, 0, 0);
+                ctx.bezierCurveTo(15, -10, 12, -35, 0, -45);
+                ctx.bezierCurveTo(-12, -35, -15, -10, 0, 0);
                 ctx.fill();
-                ctx.strokeStyle = this.color[1];
-                ctx.lineWidth = 1;
+
+                ctx.strokeStyle = innerShade;
+                ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
-                ctx.lineTo(0, -25);
+                ctx.lineTo(0, -30);
                 ctx.stroke();
+
+                ctx.fillStyle = "#c94062";
+                for(let d = 0; d < 5; d++){
+                   ctx.beginPath();
+                   ctx.arc((Math.random() - 0.5) * 10, -8 - Math.random() * 15, 0.7, 0, Math.PI * 2);
+                   ctx.fill();
+                }
               }
-              ctx.strokeStyle = "#ffcc00";
-              for (let i = 0; i < 3; i++) {
+
+              ctx.fillStyle = "#b3d9b3";
+              ctx.beginPath();
+              ctx.arc(0, 0, 3, 0, Math.PI * 2);
+              ctx.fill();
+
+              ctx.strokeStyle = "#e6f2a7";
+              ctx.lineWidth = 1.2;
+              for (let i = 0; i < 5; i++) {
+                let angle = (Math.PI * 2 / 5) * i;
+                let len = 14 + Math.random() * 5;
+                let ex = Math.cos(angle) * len;
+                let ey = Math.sin(angle) * len;
+                
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
-                ctx.lineTo((Math.random() - 0.5) * 15, -15 - Math.random() * 5);
+                ctx.lineTo(ex, ey);
                 ctx.stroke();
+
+                ctx.fillStyle = "#d97b29";
+                ctx.save();
+                ctx.translate(ex, ey);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 1.5, 3.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
               }
             }
             ctx.restore();
@@ -300,49 +351,33 @@
         requestAnimationFrame(animate);
       }
 
-      // Automatic initial bloom
       function initBouquet() {
-        const numInitialFlowers = 4; // Plant 4 regular flowers first
+        const numInitialFlowers = 4;
         for (let i = 0; i < numInitialFlowers; i++) {
           setTimeout(() => {
             let pos = getValidTarget(width / 2, height / 2 + 50, 700, 300, 60);
             flowers.push(new Flower(pos.x, pos.y));
-          }, i * 400); // Stagger them so they grow one by one
+          }, i * 400); 
         }
 
         setTimeout(() => {
-          // Add 2 big lilies after the regular ones
           for (let i = 0; i < 2; i++) {
             setTimeout(() => {
-              let pos = getValidTarget(
-                width / 2,
-                height / 2 - 50,
-                700,
-                250,
-                120,
-              );
+              let pos = getValidTarget(width / 2, height / 2 - 50, 700, 250, 120);
               flowers.push(new Flower(pos.x, pos.y, 2, 1.8));
             }, i * 400);
           }
         }, numInitialFlowers * 400);
       }
 
-      // Plant new flower on click
+      // Plant new flower EXACTLY where clicked
       canvas.addEventListener("click", (e) => {
-        let pos = getValidTarget(e.clientX, e.clientY, 150, 150, 70);
-        flowers.push(new Flower(pos.x, pos.y));
+        flowers.push(new Flower(e.clientX, e.clientY));
       });
 
       // Plant new flower on ANY key press
       window.addEventListener("keydown", () => {
-        let pos = getValidTarget(
-          width / 2,
-          height / 2,
-          width * 0.8,
-          height * 0.6,
-          70,
-        );
-        // 20% chance to spawn a big lily on key press, otherwise random
+        let pos = getValidTarget(width / 2, height / 2, width * 0.8, height * 0.6, 70);
         if (Math.random() > 0.8) {
           flowers.push(new Flower(pos.x, pos.y, 2, 1.8));
         } else {
@@ -350,7 +385,6 @@
         }
       });
 
-      // Start
       initBouquet();
       animate();
     </script>
